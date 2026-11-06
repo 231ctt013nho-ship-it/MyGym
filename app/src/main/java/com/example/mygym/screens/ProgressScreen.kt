@@ -1,312 +1,175 @@
 package com.example.mygym.screens
 
 import android.content.Context
-
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.Text
-import androidx.compose.runtime.*
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
-import com.example.mygym.components.DarkCard
-import com.example.mygym.components.DetailStatCard
-import com.example.mygym.components.SecondaryButton
-
-import com.example.mygym.data.AccountStorage
-
-import com.example.mygym.ui.theme.GymAccent
-import com.example.mygym.ui.theme.GymCard
-import com.example.mygym.ui.theme.GymGray
-import com.example.mygym.ui.theme.GymWhite
-import com.example.mygym.ui.theme.GymDivider
-
+import com.example.mygym.ui.theme.GymBackground
 
 @Composable
 fun ProgressScreen(
     context: Context,
     onBackClick: () -> Unit
 ) {
+    // Dữ liệu mẫu tiến độ tập luyện trong tuần
+    val totalWorkoutDays = 5 // Số ngày tập dự kiến (T2, T3, T5, T6, T7)
+    val completedWorkoutDays = 2 // Số ngày đã hoàn thành
+    val overallProgress = completedWorkoutDays.toFloat() / totalWorkoutDays.toFloat()
 
-    // =========================================================
-    // LẤY DANH SÁCH NGÀY ĐÃ HOÀN THÀNH
-    // =========================================================
+    val daysStatus = listOf(
+        Pair("Thứ 2", true),
+        Pair("Thứ 3", true),
+        Pair("Thứ 4", false), // Nghỉ
+        Pair("Thứ 5", false),
+        Pair("Thứ 6", false),
+        Pair("Thứ 7", false),
+        Pair("Chủ Nhật", false) // Nghỉ
+    )
 
-    val completedDays = remember {
-        mutableStateOf(
-            AccountStorage.getCompletedDays(context)
-        )
-    }
-
-
-    // =========================================================
-    // TỔNG SỐ NGÀY TẬP
-    // =========================================================
-
-    val totalWorkoutDays =
-        weeklyWorkoutPlan.count {
-            it.exercises.isNotEmpty()
-        }
-
-
-    // =========================================================
-    // SỐ NGÀY ĐÃ HOÀN THÀNH
-    // =========================================================
-
-    val completedCount =
-        completedDays.value
-            .size
-            .coerceAtMost(totalWorkoutDays)
-
-
-    // =========================================================
-    // TÍNH PHẦN TRĂM TIẾN ĐỘ
-    // =========================================================
-
-    val progress =
-        if (totalWorkoutDays > 0) {
-            completedCount.toFloat() / totalWorkoutDays.toFloat()
-        } else {
-            0f
-        }
-
-
-    val progressPercent =
-        (progress * 100).toInt()
-
-
-    // =========================================================
-    // GIAO DIỆN
-    // =========================================================
-
-    LazyColumn(
+    Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(
-                horizontal = 20.dp,
-                vertical = 22.dp
-            ),
-
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .background(GymBackground)
+            .statusBarsPadding()
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState())
     ) {
-
-        // =====================================================
-        // TIÊU ĐỀ
-        // =====================================================
-
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
+        // Nút quay lại và tiêu đề
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.padding(bottom = 20.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clickable { onBackClick() },
+                contentAlignment = Alignment.CenterStart
             ) {
-
                 Text(
-                    text = "‹",
-                    fontSize = 38.sp,
-                    color = GymWhite,
-                    modifier = Modifier
-                        .padding(end = 8.dp)
-                        .then(
-                            Modifier
-                        )
+                    text = "←",
+                    color = Color.White,
+                    fontSize = 26.sp,
+                    fontWeight = FontWeight.Bold
                 )
-
-                Column {
-
-                    Text(
-                        text = "TIẾN ĐỘ",
-                        fontSize = 27.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        color = GymWhite
-                    )
-
-                    Text(
-                        text = "THEO DÕI KẾT QUẢ TẬP LUYỆN",
-                        fontSize = 9.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.3.sp,
-                        color = GymGray
-                    )
-                }
             }
+            Spacer(modifier = Modifier.width(4.dp))
+            Text(
+                text = "TIẾN ĐỘ TẬP LUYỆN",
+                color = Color.White,
+                fontSize = 20.sp,
+                fontWeight = FontWeight.Bold
+            )
         }
 
-
-        // =====================================================
-        // CARD TIẾN ĐỘ
-        // =====================================================
-
-        item {
-
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-
-                colors = CardDefaults.cardColors(
-                    containerColor = GymCard
-                ),
-
-                border = androidx.compose.foundation.BorderStroke(
-                    1.dp,
-                    GymDivider
-                ),
-
-                shape = androidx.compose.foundation.shape.RoundedCornerShape(
-                    20.dp
+        // Card tổng quan tiến độ tuần
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(12.dp))
+                .background(Color(0xFF242730))
+                .padding(20.dp)
+        ) {
+            Column {
+                Text(
+                    text = "Mục tiêu tuần này",
+                    color = Color.Gray,
+                    fontSize = 13.sp
                 )
-            ) {
+                Spacer(modifier = Modifier.height(6.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.Bottom
+                ) {
+                    Text(
+                        text = "$completedWorkoutDays / $totalWorkoutDays ngày",
+                        color = Color.White,
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.ExtraBold
+                    )
+                    Text(
+                        text = "${(overallProgress * 100).toInt()}%",
+                        color = Color(0xFFFF9800),
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                }
 
-                Column(
+                Spacer(modifier = Modifier.height(14.dp))
+
+                LinearProgressIndicator(
+                    progress = { overallProgress },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(20.dp)
+                        .height(10.dp)
+                        .clip(RoundedCornerShape(5.dp)),
+                    color = Color(0xFFFF9800),
+                    trackColor = Color(0xFF333842)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(24.dp))
+
+        Text(
+            text = "Trạng thái các ngày trong tuần",
+            color = Color.White,
+            fontSize = 16.sp,
+            fontWeight = FontWeight.Bold,
+            modifier = Modifier.padding(bottom = 12.dp)
+        )
+
+        // Danh sách trạng thái từng ngày
+        Column(
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            daysStatus.forEach { (day, isDone) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF1E2129))
+                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-
                     Text(
-                        text = "TIẾN ĐỘ TUẦN",
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.ExtraBold,
-                        letterSpacing = 1.2.sp,
-                        color = GymGray
+                        text = day,
+                        color = Color.White,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Medium
                     )
 
-                    Spacer(
-                        modifier = Modifier.height(10.dp)
-                    )
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-
-                        Text(
-                            text = "$progressPercent%",
-                            fontSize = 40.sp,
-                            fontWeight = FontWeight.ExtraBold,
-                            color = GymAccent
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .clip(CircleShape)
+                                .background(if (isDone) Color(0xFF4CAF50) else Color.Gray)
                         )
-
-                        Spacer(
-                            modifier = Modifier.width(8.dp)
-                        )
-
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "hoàn thành",
-                            fontSize = 13.sp,
-                            color = GymGray,
-                            modifier = Modifier.padding(
-                                bottom = 7.dp
-                            )
+                            text = if (isDone) "Đã hoàn thành" else "Chưa hoàn thành",
+                            color = if (isDone) Color(0xFF4CAF50) else Color.Gray,
+                            fontSize = 13.sp
                         )
                     }
-
-                    Spacer(
-                        modifier = Modifier.height(14.dp)
-                    )
-
-                    // Thanh tiến độ
-                    androidx.compose.material3.LinearProgressIndicator(
-                        progress = { progress },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(8.dp),
-
-                        color = GymAccent,
-
-                        trackColor = GymDivider
-                    )
-
-                    Spacer(
-                        modifier = Modifier.height(10.dp)
-                    )
-
-                    Text(
-                        text = "$completedCount / $totalWorkoutDays ngày tập đã hoàn thành",
-                        fontSize = 12.sp,
-                        color = GymGray
-                    )
                 }
             }
-        }
-
-
-        // =====================================================
-        // THỐNG KÊ
-        // =====================================================
-
-        item {
-
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-
-                DetailStatCard(
-                    label = "NGÀY HOÀN THÀNH",
-                    value = completedCount.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-
-                DetailStatCard(
-                    label = "TỔNG NGÀY TẬP",
-                    value = totalWorkoutDays.toString(),
-                    modifier = Modifier.weight(1f)
-                )
-            }
-        }
-
-
-        // =====================================================
-        // THÔNG TIN
-        // =====================================================
-
-        item {
-
-            DarkCard {
-
-                Text(
-                    text = "THỐNG KÊ TẬP LUYỆN",
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    letterSpacing = 1.2.sp,
-                    color = GymGray
-                )
-
-                Spacer(
-                    modifier = Modifier.height(10.dp)
-                )
-
-                Text(
-                    text = if (completedCount == 0) {
-                        "Bạn chưa hoàn thành buổi tập nào."
-                    } else {
-                        "Bạn đã hoàn thành $completedCount buổi tập. Hãy tiếp tục duy trì lịch tập!"
-                    },
-
-                    fontSize = 14.sp,
-                    lineHeight = 21.sp,
-                    color = GymWhite
-                )
-            }
-        }
-
-
-        // =====================================================
-        // NÚT QUAY LẠI
-        // =====================================================
-
-        item {
-
-            SecondaryButton(
-                text = "QUAY LẠI",
-                onClick = onBackClick,
-                modifier = Modifier.fillMaxWidth()
-            )
         }
     }
 }
