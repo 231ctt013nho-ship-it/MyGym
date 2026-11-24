@@ -36,9 +36,7 @@ fun ExerciseDetailScreen(
             .padding(horizontal = 18.dp, vertical = 18.dp)
     ) {
 
-        // ==============================
         // TIÊU ĐỀ
-        // ==============================
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -75,9 +73,7 @@ fun ExerciseDetailScreen(
 
         Spacer(modifier = Modifier.height(18.dp))
 
-        // ==============================
         // HÌNH ẢNH BÀI TẬP
-        // ==============================
 
         Card(
             modifier = Modifier
@@ -104,9 +100,7 @@ fun ExerciseDetailScreen(
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        // ==============================
         // THÔNG TIN CƠ BẢN
-        // ==============================
 
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -128,9 +122,7 @@ fun ExerciseDetailScreen(
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        // ==============================
         // MÔ TẢ
-        // ==============================
 
         DarkCard {
 
@@ -154,9 +146,7 @@ fun ExerciseDetailScreen(
 
         Spacer(modifier = Modifier.height(15.dp))
 
-        // ==============================
         // DỮ LIỆU TẬP LUYỆN
-        // ==============================
 
         DarkCard {
 

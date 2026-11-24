@@ -1,10 +1,9 @@
 package com.example.mygym.screens
 
 import android.content.Context
-
+import android.widget.Toast
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
 import androidx.compose.runtime.*
@@ -12,21 +11,16 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-
 import com.example.mygym.components.DarkCard
 import com.example.mygym.components.ModernTextField
 import com.example.mygym.components.PrimaryButton
 import com.example.mygym.components.SecondaryButton
-
-import com.example.mygym.data.AccountStorage
-
+import com.example.mygym.data.GymDatabaseHelper
 import com.example.mygym.ui.theme.GymAccent
 import com.example.mygym.ui.theme.GymRed
 import com.example.mygym.ui.theme.GymWhite
-
 
 @Composable
 fun RegisterScreen(
@@ -34,269 +28,102 @@ fun RegisterScreen(
     onRegisterSuccess: () -> Unit,
     onBackClick: () -> Unit
 ) {
+    val dbHelper = remember { GymDatabaseHelper(context) }
 
-    // ========================================================
-    // DỮ LIỆU NHẬP
-    // ========================================================
+    val username = remember { mutableStateOf("") }
+    val email = remember { mutableStateOf("") }
+    val password = remember { mutableStateOf("") }
+    val confirmPassword = remember { mutableStateOf("") }
+    val message = remember { mutableStateOf("") }
 
-    val username = remember {
-        mutableStateOf("")
-    }
-
-    val password = remember {
-        mutableStateOf("")
-    }
-
-    val confirmPassword = remember {
-        mutableStateOf("")
-    }
-
-    val message = remember {
-        mutableStateOf("")
-    }
-
-
-    // ========================================================
-    // GIAO DIỆN
-    // ========================================================
-
-    LazyColumn(
-        modifier = Modifier
-            .fillMaxSize()
-            .padding(24.dp),
-
-        horizontalAlignment = Alignment.CenterHorizontally,
-
-        verticalArrangement = Arrangement.Center
+    Box(
+        modifier = Modifier.fillMaxSize().padding(24.dp),
+        contentAlignment = Alignment.Center
     ) {
-
-        item {
-
-            // ==================================================
-            // LOGO
-            // ==================================================
-
+        Column(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
             Box(
-                modifier = Modifier
-                    .size(65.dp)
-                    .clip(
-                        RoundedCornerShape(18.dp)
-                    )
-                    .background(
-                        GymAccent.copy(alpha = 0.15f)
-                    ),
-
+                modifier = Modifier.size(70.dp).clip(RoundedCornerShape(18.dp)).background(GymAccent.copy(alpha = 0.15f)),
                 contentAlignment = Alignment.Center
             ) {
-
-                Text(
-                    text = "MG",
-                    fontSize = 22.sp,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = GymAccent
-                )
+                Text("MG", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = GymAccent)
             }
 
-
-            Spacer(
-                modifier = Modifier.height(15.dp)
-            )
-
-
-            // ==================================================
-            // TIÊU ĐỀ
-            // ==================================================
-
-            Text(
-                text = "TẠO TÀI KHOẢN",
-                fontSize = 27.sp,
-                fontWeight = FontWeight.ExtraBold,
-                color = GymWhite,
-                textAlign = TextAlign.Center
-            )
-
-
-            Spacer(
-                modifier = Modifier.height(25.dp)
-            )
-
-
-            // ==================================================
-            // CARD ĐĂNG KÝ
-            // ==================================================
+            Spacer(modifier = Modifier.height(12.dp))
+            Text("TẠO TÀI KHOẢN MỚI", fontSize = 22.sp, fontWeight = FontWeight.ExtraBold, color = GymWhite)
+            Spacer(modifier = Modifier.height(16.dp))
 
             DarkCard {
-
-                // ----------------------------------------------
-                // TÊN TÀI KHOẢN
-                // ----------------------------------------------
-
                 ModernTextField(
                     value = username.value,
-
-                    onValueChange = {
-                        username.value = it
-                        message.value = ""
-                    },
-
+                    onValueChange = { username.value = it; message.value = "" },
                     label = "Tên tài khoản"
                 )
+                Spacer(modifier = Modifier.height(10.dp))
 
-
-                Spacer(
-                    modifier = Modifier.height(13.dp)
+                ModernTextField(
+                    value = email.value,
+                    onValueChange = { email.value = it; message.value = "" },
+                    label = "Địa chỉ Gmail (VD: user@gmail.com)"
                 )
-
-
-                // ----------------------------------------------
-                // MẬT KHẨU
-                // ----------------------------------------------
+                Spacer(modifier = Modifier.height(10.dp))
 
                 ModernTextField(
                     value = password.value,
-
-                    onValueChange = {
-                        password.value = it
-                        message.value = ""
-                    },
-
+                    onValueChange = { password.value = it; message.value = "" },
                     label = "Mật khẩu",
-
                     password = true
                 )
-
-
-                Spacer(
-                    modifier = Modifier.height(13.dp)
-                )
-
-
-                // ----------------------------------------------
-                // NHẬP LẠI MẬT KHẨU
-                // ----------------------------------------------
+                Spacer(modifier = Modifier.height(10.dp))
 
                 ModernTextField(
                     value = confirmPassword.value,
-
-                    onValueChange = {
-                        confirmPassword.value = it
-                        message.value = ""
-                    },
-
+                    onValueChange = { confirmPassword.value = it; message.value = "" },
                     label = "Nhập lại mật khẩu",
-
                     password = true
                 )
 
-
-                // =================================================
-                // THÔNG BÁO
-                // =================================================
-
                 if (message.value.isNotEmpty()) {
-
-                    Spacer(
-                        modifier = Modifier.height(12.dp)
-                    )
-
-                    Text(
-                        text = message.value,
-                        color = GymRed,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
-                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    Text(message.value, fontSize = 12.sp, color = GymRed, fontWeight = FontWeight.Bold)
                 }
 
-
-                Spacer(
-                    modifier = Modifier.height(18.dp)
-                )
-
-
-                // =================================================
-                // NÚT TẠO TÀI KHOẢN
-                // =================================================
+                Spacer(modifier = Modifier.height(16.dp))
 
                 PrimaryButton(
                     text = "TẠO TÀI KHOẢN",
-
                     onClick = {
+                        val userStr = username.value.trim()
+                        val emailStr = email.value.trim()
+                        val passStr = password.value
+                        val confirmStr = confirmPassword.value
 
-                        // -----------------------------------------
-                        // KIỂM TRA BỎ TRỐNG
-                        // -----------------------------------------
-
-                        if (
-                            username.value.isBlank() ||
-                            password.value.isBlank() ||
-                            confirmPassword.value.isBlank()
-                        ) {
-
-                            message.value =
-                                "Vui lòng nhập đầy đủ thông tin"
-                        }
-
-                        // -----------------------------------------
-                        // KIỂM TRA MẬT KHẨU
-                        // -----------------------------------------
-
-                        else if (
-                            password.value != confirmPassword.value
-                        ) {
-
-                            message.value =
-                                "Mật khẩu không khớp"
-                        }
-
-                        // -----------------------------------------
-                        // KIỂM TRA TÀI KHOẢN ĐÃ TỒN TẠI
-                        // -----------------------------------------
-
-                        else if (
-                            AccountStorage.accountExists(
-                                context,
-                                username.value
-                            )
-                        ) {
-
-                            message.value =
-                                "Tài khoản đã tồn tại"
-                        }
-
-                        // -----------------------------------------
-                        // ĐĂNG KÝ THÀNH CÔNG
-                        // -----------------------------------------
-
-                        else {
-
-                            AccountStorage.register(
-                                context,
-                                username.value,
-                                password.value
-                            )
-
-                            onRegisterSuccess()
+                        if (userStr.isBlank() || emailStr.isBlank() || passStr.isBlank() || confirmStr.isBlank()) {
+                            message.value = "Vui lòng nhập đầy đủ Tên, Gmail & Mật khẩu"
+                        } else if (!emailStr.contains("@")) {
+                            message.value = "Định dạng Gmail không hợp lệ"
+                        } else if (passStr != confirmStr) {
+                            message.value = "Mật khẩu xác nhận không khớp"
+                        } else {
+                            val success = dbHelper.registerUserWithEmail(userStr, emailStr, passStr)
+                            if (!success) {
+                                message.value = "Tên tài khoản hoặc Gmail đã được đăng ký"
+                            } else {
+                                Toast.makeText(context, "Đăng ký thành công!", Toast.LENGTH_SHORT).show()
+                                onRegisterSuccess()
+                            }
                         }
                     },
-
                     modifier = Modifier.fillMaxWidth()
                 )
 
-
-                Spacer(
-                    modifier = Modifier.height(10.dp)
-                )
-
-
-                // =================================================
-                // NÚT QUAY LẠI
-                // =================================================
+                Spacer(modifier = Modifier.height(10.dp))
 
                 SecondaryButton(
-                    text = "QUAY LẠI",
-
+                    text = "Quay lại",
                     onClick = onBackClick,
-
                     modifier = Modifier.fillMaxWidth()
                 )
             }

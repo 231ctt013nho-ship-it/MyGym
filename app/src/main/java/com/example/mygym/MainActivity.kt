@@ -8,13 +8,13 @@ import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
 import com.example.mygym.data.AccountStorage
 import com.example.mygym.data.Exercise
+import com.example.mygym.data.GymDatabaseHelper
 import com.example.mygym.data.exercises
+import com.example.mygym.screens.AdminScreen
 import com.example.mygym.screens.DayWorkoutScreen
 import com.example.mygym.screens.ExerciseDetailScreen
 import com.example.mygym.screens.ExerciseListScreen
@@ -25,6 +25,7 @@ import com.example.mygym.screens.MuscleGroupScreen
 import com.example.mygym.screens.ProgressScreen
 import com.example.mygym.screens.RegisterScreen
 import com.example.mygym.screens.ScheduleScreen
+import com.example.mygym.screens.WeeklyReviewScreen
 import com.example.mygym.ui.theme.GymBackground
 import com.example.mygym.ui.theme.MyGymTheme
 
@@ -42,11 +43,30 @@ class MainActivity : ComponentActivity() {
 
 @Composable
 fun GymApp(context: Context) {
+    val dbHelper = remember { GymDatabaseHelper(context) }
+
     val currentScreen = remember { mutableStateOf("login") }
     val currentUsername = remember { mutableStateOf("") }
     val selectedMuscle = remember { mutableStateOf("Tất cả") }
     val selectedDay = remember { mutableStateOf("THỨ 2") }
     val selectedExercise = remember { mutableStateOf<Exercise?>(null) }
+
+    // Tải danh sách bài tập mới nhất từ CSDL SQLite
+    val dynamicExercises = remember(currentScreen.value) {
+        val dbList = dbHelper.getAllExercises()
+        if (dbList.isNotEmpty()) {
+            dbList.map { entity ->
+                Exercise(
+                    name = entity.name,
+                    muscle = entity.muscle,
+                    imageRes = entity.imageRes,
+                    description = "${entity.sets} • ${entity.reps}\n\n${entity.description}"
+                )
+            }
+        } else {
+            exercises
+        }
+    }
 
     Box(
         modifier = Modifier
@@ -54,20 +74,29 @@ fun GymApp(context: Context) {
             .background(GymBackground)
     ) {
         when (currentScreen.value) {
-            // Đăng nhập
             "login" -> {
                 LoginScreen(
                     context = context,
-                    onLoginSuccess = { username ->
+                    onLoginSuccess = { username, role ->
                         currentUsername.value = username
-                        currentScreen.value = "home"
+                        currentScreen.value = if (role == "ADMIN") "admin" else "home"
                     },
                     onRegisterClick = { currentScreen.value = "register" },
                     onForgotPasswordClick = { currentScreen.value = "forgot_password" }
                 )
             }
 
-            // Quên mật khẩu
+            "admin" -> {
+                AdminScreen(
+                    context = context,
+                    onLogout = {
+                        AccountStorage.logout(context)
+                        currentUsername.value = ""
+                        currentScreen.value = "login"
+                    }
+                )
+            }
+
             "forgot_password" -> {
                 ForgotPasswordScreen(
                     context = context,
@@ -75,7 +104,6 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Đăng ký
             "register" -> {
                 RegisterScreen(
                     context = context,
@@ -84,7 +112,6 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Trang chủ
             "home" -> {
                 HomeScreen(
                     username = currentUsername.value,
@@ -103,7 +130,6 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Lịch tập (Thứ 2 - Chủ Nhật)
             "schedule" -> {
                 ScheduleScreen(
                     context = context,
@@ -112,19 +138,18 @@ fun GymApp(context: Context) {
                         selectedDay.value = dayTitle
                         currentScreen.value = "day_workout"
                     },
-                    onProgressClick = { currentScreen.value = "progress" }
+                    onProgressClick = { currentScreen.value = "weekly_review" }
                 )
             }
 
-            // Chi tiết từng ngày (Có checkbox hoàn thành bài tập)
             "day_workout" -> {
                 DayWorkoutScreen(
+                    context = context,
                     dayTitle = selectedDay.value,
                     onBackClick = { currentScreen.value = "schedule" }
                 )
             }
 
-            // Tiến độ
             "progress" -> {
                 ProgressScreen(
                     context = context,
@@ -132,15 +157,28 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Danh sách bài tập
+            "weekly_review" -> {
+                WeeklyReviewScreen(
+                    context = context,
+                    onBackClick = { currentScreen.value = "schedule" }
+                )
+            }
+
             "exercises" -> {
+                val filteredList = if (selectedMuscle.value == "Tất cả") {
+                    dynamicExercises
+                } else {
+                    dynamicExercises.filter {
+                        it.muscle.contains(selectedMuscle.value, ignoreCase = true) ||
+                        selectedMuscle.value.contains(it.muscle, ignoreCase = true)
+                    }
+                }
+
                 ExerciseListScreen(
-                    title = "Bài tập",
-                    exerciseList = exercises,
+                    title = if (selectedMuscle.value == "Tất cả") "Tất cả bài tập" else selectedMuscle.value,
+                    exerciseList = filteredList,
                     selectedMuscle = selectedMuscle.value,
-                    onMuscleSelected = { muscle ->
-                        selectedMuscle.value = muscle
-                    },
+                    onMuscleSelected = { muscle -> selectedMuscle.value = muscle },
                     onBackClick = { currentScreen.value = "home" },
                     onExerciseClick = { exercise ->
                         selectedExercise.value = exercise
@@ -149,7 +187,6 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Danh sách nhóm cơ
             "muscles" -> {
                 MuscleGroupScreen(
                     onBackClick = { currentScreen.value = "home" },
@@ -160,21 +197,21 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Lọc bài tập theo nhóm cơ đã chọn
             "muscleExercises" -> {
                 val filteredExercises = if (selectedMuscle.value == "Tất cả") {
-                    exercises
+                    dynamicExercises
                 } else {
-                    exercises.filter { it.muscle == selectedMuscle.value }
+                    dynamicExercises.filter {
+                        it.muscle.contains(selectedMuscle.value, ignoreCase = true) ||
+                        selectedMuscle.value.contains(it.muscle, ignoreCase = true)
+                    }
                 }
 
                 ExerciseListScreen(
                     title = selectedMuscle.value,
                     exerciseList = filteredExercises,
                     selectedMuscle = selectedMuscle.value,
-                    onMuscleSelected = { muscle ->
-                        selectedMuscle.value = muscle
-                    },
+                    onMuscleSelected = { muscle -> selectedMuscle.value = muscle },
                     onBackClick = { currentScreen.value = "muscles" },
                     onExerciseClick = { exercise ->
                         selectedExercise.value = exercise
@@ -183,7 +220,6 @@ fun GymApp(context: Context) {
                 )
             }
 
-            // Chi tiết bài tập
             "detail" -> {
                 selectedExercise.value?.let { exercise ->
                     ExerciseDetailScreen(

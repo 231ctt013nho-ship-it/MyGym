@@ -12,6 +12,7 @@ data class Exercise(
 data class MuscleGroup(
     val name: String,
     val shortName: String
+
 )
 
 val exercises = listOf(

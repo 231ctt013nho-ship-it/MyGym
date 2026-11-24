@@ -1,16 +1,18 @@
 package com.example.mygym.screens
 
 import android.content.Context
+import android.widget.Toast
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.LinearProgressIndicator
-import androidx.compose.material3.Text
-import androidx.compose.runtime.Composable
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -18,27 +20,54 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.example.mygym.data.AccountStorage
+import com.example.mygym.data.GymDatabaseHelper
+import com.example.mygym.ui.theme.GymAccent
 import com.example.mygym.ui.theme.GymBackground
 
+/**
+ * Màn hình TIẾN ĐỘ TẬP LUYỆN ĐA TẦNG:
+ * • Bấm vào Tháng → Hiện ra 4 Tuần
+ * • Bấm vào Tuần → Hiện ra các Thứ từ Thứ 2 đến Chủ Nhật
+ * • Bấm vào Thứ 2 → Hiện ra chi tiết Bài Đã Tập và Bài Không Hoàn Thành
+ */
 @Composable
 fun ProgressScreen(
     context: Context,
     onBackClick: () -> Unit
 ) {
-    // Dữ liệu mẫu tiến độ tập luyện trong tuần
-    val totalWorkoutDays = 5 // Số ngày tập dự kiến (T2, T3, T5, T6, T7)
-    val completedWorkoutDays = 2 // Số ngày đã hoàn thành
-    val overallProgress = completedWorkoutDays.toFloat() / totalWorkoutDays.toFloat()
+    val dbHelper = remember { GymDatabaseHelper(context) }
+    val currentUsername = AccountStorage.getUsername(context)
+    val targetUser = if (currentUsername.isBlank()) "user" else currentUsername
 
-    val daysStatus = listOf(
-        Pair("Thứ 2", true),
-        Pair("Thứ 3", true),
-        Pair("Thứ 4", false), // Nghỉ
-        Pair("Thứ 5", false),
-        Pair("Thứ 6", false),
-        Pair("Thứ 7", false),
-        Pair("Chủ Nhật", false) // Nghỉ
+    var userLogs by remember { mutableStateOf(dbHelper.getUserWorkoutLogs(targetUser)) }
+
+    // 1. THÁNG (Bấm vào Tháng sẽ hiện ra 4 Tuần)
+    val monthsList = listOf("Tháng 10/2026", "Tháng 11/2026", "Tháng 12/2026")
+    var selectedMonth by remember { mutableStateOf("Tháng 11/2026") }
+
+    // 2. TUẦN (Bấm vào Tuần sẽ hiện ra Thứ 2 -> Chủ Nhật)
+    val weeksList = listOf("Tuần 1", "Tuần 2", "Tuần 3", "Tuần 4")
+    var selectedWeekIndex by remember { mutableStateOf(0) } // 0: Tuần 1, 1: Tuần 2, 2: Tuần 3, 3: Tuần 4
+
+    // 3. THỨ (Bấm vào Thứ 2 sẽ hiện các Bài đã tập & Không hoàn thành bài nào)
+    val daysList = listOf(
+        Pair("THỨ 2", "Thứ 2 • Ngực/Vai/Tay"),
+        Pair("THỨ 3", "Thứ 3 • Lưng/Tay trước"),
+        Pair("THỨ 4", "Thứ 4 • Chân/Bụng"),
+        Pair("THỨ 5", "Thứ 5 • Vai/Ngực/Tay"),
+        Pair("THỨ 6", "Thứ 6 • Lưng/Tay trước"),
+        Pair("THỨ 7", "Thứ 7 • Cardio nhẹ"),
+        Pair("CHỦ NHẬT", "Chủ Nhật • Nghỉ hoàn toàn")
     )
+    var selectedDayKey by remember { mutableStateOf("THỨ 2") }
+
+    // Lấy bản ghi tiến độ tập thực tế từ SQLite
+    val currentLog = remember(selectedDayKey, userLogs) {
+        userLogs.find { it.dayKey.equals(selectedDayKey, ignoreCase = true) }
+    }
+
+    var editNotes by remember(selectedDayKey, currentLog) { mutableStateOf(currentLog?.notes ?: "") }
 
     Column(
         modifier = Modifier
@@ -48,10 +77,10 @@ fun ProgressScreen(
             .padding(16.dp)
             .verticalScroll(rememberScrollState())
     ) {
-        // Nút quay lại và tiêu đề
+        // HEADER
         Row(
             verticalAlignment = Alignment.CenterVertically,
-            modifier = Modifier.padding(bottom = 20.dp)
+            modifier = Modifier.padding(bottom = 16.dp)
         ) {
             Box(
                 modifier = Modifier
@@ -59,114 +88,327 @@ fun ProgressScreen(
                     .clickable { onBackClick() },
                 contentAlignment = Alignment.CenterStart
             ) {
-                Text(
-                    text = "←",
-                    color = Color.White,
-                    fontSize = 26.sp,
-                    fontWeight = FontWeight.Bold
-                )
+                Text(text = "←", color = Color.White, fontSize = 26.sp, fontWeight = FontWeight.Bold)
             }
             Spacer(modifier = Modifier.width(4.dp))
-            Text(
-                text = "TIẾN ĐỘ TẬP LUYỆN",
-                color = Color.White,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold
-            )
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = "TIẾN ĐỘ TẬP LUYỆN",
+                    color = Color.White,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+                Text(
+                    text = "Tháng → Tuần → Thứ → Bài đã tập & Chưa hoàn thành",
+                    color = Color.Gray,
+                    fontSize = 11.sp
+                )
+            }
         }
 
-        // Card tổng quan tiến độ tuần
-        Box(
+        // 1️⃣ BẤM VÀO THÁNG (BẤM VÀO THÁNG SẼ HIỆN RA CÁC TUẦN)
+        Text(text = "1️⃣ CHỌN THÁNG TẬP LUYỆN", color = GymAccent, fontSize = 13.sp, fontWeight = FontWeight.ExtraBold)
+        Spacer(modifier = Modifier.height(6.dp))
+
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clip(RoundedCornerShape(12.dp))
-                .background(Color(0xFF242730))
-                .padding(20.dp)
+                .padding(bottom = 14.dp),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            Column {
-                Text(
-                    text = "Mục tiêu tuần này",
-                    color = Color.Gray,
-                    fontSize = 13.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.Bottom
+            monthsList.forEach { month ->
+                val isSelected = selectedMonth == month
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) GymAccent else Color(0xFF242730))
+                        .clickable { selectedMonth = month }
+                        .padding(vertical = 10.dp),
+                    contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "$completedWorkoutDays / $totalWorkoutDays ngày",
-                        color = Color.White,
-                        fontSize = 24.sp,
-                        fontWeight = FontWeight.ExtraBold
-                    )
-                    Text(
-                        text = "${(overallProgress * 100).toInt()}%",
-                        color = Color(0xFFFF9800),
-                        fontSize = 20.sp,
+                        text = month,
+                        color = if (isSelected) Color.Black else Color.White,
+                        fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
                     )
                 }
-
-                Spacer(modifier = Modifier.height(14.dp))
-
-                LinearProgressIndicator(
-                    progress = { overallProgress },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(10.dp)
-                        .clip(RoundedCornerShape(5.dp)),
-                    color = Color(0xFFFF9800),
-                    trackColor = Color(0xFF333842)
-                )
             }
         }
 
-        Spacer(modifier = Modifier.height(24.dp))
-
+        // 2️⃣ BẤM VÀO TUẦN (BẤM VÀO TUẦN SẼ HIỆN CÁC THỨ TỪ THỨ 2 ĐẾN CHỦ NHẬT)
         Text(
-            text = "Trạng thái các ngày trong tuần",
+            text = "2️⃣ BẤM CHỌN TUẦN CỦA $selectedMonth",
             color = Color.White,
-            fontSize = 16.sp,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(bottom = 12.dp)
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
         )
+        Spacer(modifier = Modifier.height(6.dp))
 
-        // Danh sách trạng thái từng ngày
-        Column(
-            verticalArrangement = Arrangement.spacedBy(10.dp)
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(bottom = 16.dp),
+            shape = RoundedCornerShape(12.dp),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFF242730))
         ) {
-            daysStatus.forEach { (day, isDone) ->
+            Column(modifier = Modifier.padding(12.dp)) {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .clip(RoundedCornerShape(8.dp))
-                        .background(Color(0xFF1E2129))
-                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    Text(
-                        text = day,
-                        color = Color.White,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-
-                    Row(verticalAlignment = Alignment.CenterVertically) {
+                    weeksList.forEachIndexed { idx, weekName ->
+                        val isSelected = selectedWeekIndex == idx
                         Box(
                             modifier = Modifier
-                                .size(8.dp)
-                                .clip(CircleShape)
-                                .background(if (isDone) Color(0xFF4CAF50) else Color.Gray)
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(if (isSelected) GymAccent else Color(0xFF181A20))
+                                .clickable { selectedWeekIndex = idx }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = weekName,
+                                color = if (isSelected) Color.Black else Color.White,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.ExtraBold
+                            )
+                        }
+                    }
+                }
+            }
+        }
+
+        // 3️⃣ BẤM CHỌN THỨ (TỪ THỨ 2 ĐẾN CHỦ NHẬT CỦA TUẦN ĐÃ CHỌN)
+        val currentWeekName = weeksList[selectedWeekIndex]
+        Text(
+            text = "3️⃣ CHỌN THỨ TRONG $currentWeekName ($selectedMonth)",
+            color = Color.White,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+            modifier = Modifier.padding(bottom = 16.dp)
+        ) {
+            itemsIndexed(daysList) { _, pair ->
+                val dayKey = pair.first
+                val isSelected = selectedDayKey == dayKey
+                val hasLog = userLogs.any { it.dayKey.equals(dayKey, ignoreCase = true) }
+                Box(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(10.dp))
+                        .background(if (isSelected) Color(0xFF2196F3) else Color(0xFF242730))
+                        .clickable { selectedDayKey = dayKey }
+                        .padding(horizontal = 14.dp, vertical = 10.dp)
+                ) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(
-                            text = if (isDone) "Đã hoàn thành" else "Chưa hoàn thành",
-                            color = if (isDone) Color(0xFF4CAF50) else Color.Gray,
-                            fontSize = 13.sp
+                            text = dayKey,
+                            color = if (isSelected) Color.Black else GymAccent,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold
                         )
+                        if (hasLog) {
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(text = "•", color = Color(0xFF4CAF50), fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+
+        // 4️⃣ BẤM VÀO THỨ 2 HIỆN RA CÁC BÀI TẬP ĐÃ TẬP & ĐÃ KHÔNG HOÀN THÀNH BÀI NÀO
+        Text(
+            text = "4️⃣ CHI TIẾT BÀI TẬP: $selectedDayKey ($currentWeekName - $selectedMonth)",
+            color = Color(0xFF2196F3),
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        if (currentLog == null) {
+            // CHƯA CÓ CẬP NHẬT TIẾN ĐỘ CHO NGÀY NÀY
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2230)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF333842))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(text = "📭 CHƯA CẬP NHẬT TIẾN ĐỘ $selectedDayKey", color = Color.Gray, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Bạn chưa lưu tiến độ buổi tập $selectedDayKey. Khi bạn vào màn hình 'Lịch tập', thực hiện bài tập và bấm 'Lưu tiến độ', danh sách bài đã tập & bài chưa hoàn thành sẽ tự động hiển thị tại đây!",
+                        color = Color.LightGray,
+                        fontSize = 12.sp,
+                        lineHeight = 18.sp
+                    )
+                }
+            }
+        } else {
+            // ĐÃ CÓ DỮ LIỆU ĐƯỢC LƯU: HIỂN THỊ CÁC BÀI ĐÃ TẬP VÀ BÀI KHÔNG HOÀN THÀNH
+            val completedCount = currentLog.completedCount
+            val totalCount = currentLog.totalExercises
+            val progressPercent = currentLog.progressPercent
+            val completedListStr = currentLog.completedList
+            val uncompletedListStr = currentLog.uncompletedList
+
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp),
+                shape = RoundedCornerShape(14.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xFF1E2230)),
+                border = androidx.compose.foundation.BorderStroke(1.dp, Color(0xFF2196F3).copy(alpha = 0.5f))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📋 TIẾN ĐỘ: $selectedDayKey • $currentWeekName",
+                            color = Color(0xFF2196F3),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.ExtraBold
+                        )
+                        Text(
+                            text = "$progressPercent% HOÀN THÀNH ($completedCount/$totalCount bài)",
+                            color = if (progressPercent == 100) Color(0xFF4CAF50) else GymAccent,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .background(Color(0xFF181A20))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    LinearProgressIndicator(
+                        progress = { progressPercent.toFloat() / 100f },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(8.dp)
+                            .clip(RoundedCornerShape(4.dp)),
+                        color = if (progressPercent == 100) Color(0xFF4CAF50) else GymAccent,
+                        trackColor = Color(0xFF333842)
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 1. HIỂN THỊ CÁC BÀI ĐÃ TẬP
+                    Text(
+                        text = "✓ CHI TIẾT CÁC BÀI BẠN ĐÃ TẬP:",
+                        color = Color(0xFF4CAF50),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (completedListStr.isNotBlank() && completedListStr != "Chưa xong bài nào") {
+                        completedListStr.split(", ").forEach { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF181A20))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "✓ ", color = Color(0xFF4CAF50), fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text(text = item, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                            }
+                        }
+                    } else {
+                        Text(text = "Chưa hoàn thành bài nào", color = Color.Gray, fontSize = 11.sp)
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 2. HIỂN THỊ ĐÃ KHÔNG HOÀN THÀNH BÀI NÀO
+                    val uncompletedCount = totalCount - completedCount
+                    Text(
+                        text = "✗ ĐÃ KHÔNG HOÀN THÀNH BÀI NÀO ($uncompletedCount BÀI):",
+                        color = Color(0xFFFF5252),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    if (uncompletedCount > 0 && uncompletedListStr.isNotBlank() && uncompletedListStr != "Không có") {
+                        uncompletedListStr.split(", ").forEach { item ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 3.dp)
+                                    .clip(RoundedCornerShape(6.dp))
+                                    .background(Color(0xFF2C1E20))
+                                    .padding(horizontal = 10.dp, vertical = 8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(text = "✗ Đã bỏ qua bài: ", color = Color(0xFFFF5252), fontSize = 11.sp, fontWeight = FontWeight.Bold)
+                                Text(text = item, color = Color.White, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+                            }
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(Color(0xFF181A20))
+                                .padding(horizontal = 10.dp, vertical = 8.dp)
+                        ) {
+                            Text(text = "🎉 Đã tập hoàn thiện tất cả các bài tập!", color = Color(0xFF4CAF50), fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    // 3. GHI CHÚ ĐÁNH GIÁ TIẾN ĐỘ
+                    Text(text = "📝 GHI CHÚ TIẾN ĐỘ $selectedDayKey ($currentWeekName):", color = GymAccent, fontSize = 12.sp, fontWeight = FontWeight.ExtraBold)
+                    Spacer(modifier = Modifier.height(6.dp))
+
+                    OutlinedTextField(
+                        value = editNotes,
+                        onValueChange = { editNotes = it },
+                        label = { Text("Ghi chú tiến độ", color = GymAccent, fontSize = 11.sp) },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = GymAccent
+                        )
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    Button(
+                        onClick = {
+                            dbHelper.updateWorkoutLogNotes(currentLog.id, editNotes)
+                            userLogs = dbHelper.getUserWorkoutLogs(targetUser)
+                            Toast.makeText(context, "Đã lưu ghi chú ngày $selectedDayKey vào Database!", Toast.LENGTH_SHORT).show()
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(containerColor = GymAccent),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Text(text = "💾 LƯU GHI CHÚ VÀO DATABASE", color = Color.Black, fontWeight = FontWeight.Bold, fontSize = 12.sp)
                     }
                 }
             }
